@@ -7,8 +7,8 @@ namespace ExpenseShareAPI.ExpenseShareModels
         public int Id { get; set; }
         public string Description { get; set; }
         public decimal Amount { get; set; }
-        public int PaidById { get; set; }   // FK -> User who paid
-        public int GroupId { get; set; }    // FK -> Group
+        public int PaidById { get; set; }   // Foreign Key-> User who paid
+        public int GroupId { get; set; }    // Foreign Key-> Group
         public DateTime CreatedAt { get; set; }
 
         public virtual User PaidBy { get; set; }

@@ -1,17 +1,19 @@
 ﻿using ExpenseShareAPI.Data;
 using ExpenseShareAPI.DTO_s;
 using ExpenseShareAPI.ExpenseShareModels;
+using Microsoft.EntityFrameworkCore;
 
 
 namespace ExpenseShareAPI.Services
 {
     public interface IGroupService
     {
-        public Group AddGroup(CreateGroupDTO group);
-        public List<Group> GetAllGroups();
-        public void AddUserToGroup(string email, string groupName);
-
-        public List<User> GetUserByGroupId(int id);
+        Task<Group> AddGroupAsync(CreateGroupDTO group);
+        Task<List<GroupSummaryDto>> GetAllGroupsAsync(); 
+        Task AddUserToGroupAsync(string email, string groupName);
+        Task<List<User>> GetUserByGroupIdAsync(int id);
+        Task<object> GetGroupDetailsAsync(int id); 
+        Task<List<object>> GetAssignmentsAsync();  
     }
 
     public class GroupService : IGroupService
@@ -22,7 +24,8 @@ namespace ExpenseShareAPI.Services
         {
             _db = db;
         }
-        public Group AddGroup(CreateGroupDTO groupDto)
+
+        public async Task<Group> AddGroupAsync(CreateGroupDTO groupDto)
         {
             if (groupDto == null)
                 throw new ArgumentNullException(nameof(groupDto));
@@ -34,28 +37,35 @@ namespace ExpenseShareAPI.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.Groups.Add(group);
-            _db.SaveChanges();
-
+            await _db.Groups.AddAsync(group);
+            await _db.SaveChangesAsync();
             return group;
         }
 
-        public List<Group> GetAllGroups()
+        public async Task<List<GroupSummaryDto>> GetAllGroupsAsync()
         {
-            return _db.Groups.ToList();
+            // ✅ Efficiently gets groups and their member counts in one query
+            return await _db.Groups
+                .Select(g => new GroupSummaryDto
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    Description = g.Description,
+                    MemberCount = g.GroupMembers.Count()
+                })
+                .ToListAsync();
         }
 
-        public void AddUserToGroup(string email, string groupName)
+        public async Task AddUserToGroupAsync(string email, string groupName)
         {
-            var user = _db.Users.FirstOrDefault(u => u.Email == email);
-            var group = _db.Groups.FirstOrDefault(g => g.Name == groupName);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            var group = await _db.Groups.FirstOrDefaultAsync(g => g.Name == groupName);
 
             if (group == null || user == null)
                 throw new ArgumentException("Group or User not found.");
 
-            // Check if already exists
-            var exists = _db.GroupMembers
-                .Any(gm => gm.GroupId == group.Id && gm.UserId == user.Id);
+            var exists = await _db.GroupMembers
+                .AnyAsync(gm => gm.GroupId == group.Id && gm.UserId == user.Id);
 
             if (exists)
                 throw new InvalidOperationException("User already in group.");
@@ -67,18 +77,51 @@ namespace ExpenseShareAPI.Services
                 JoinedAt = DateTime.UtcNow
             };
 
-            _db.GroupMembers.Add(groupMember);
-            _db.SaveChanges();
+            await _db.GroupMembers.AddAsync(groupMember);
+            await _db.SaveChangesAsync();
         }
 
-        public List<User> GetUserByGroupId(int id)
+        public async Task<List<User>> GetUserByGroupIdAsync(int id)
         {
-            var userList = _db.GroupMembers
+            // ✅ Uses .Include() to efficiently load related User data
+            return await _db.GroupMembers
                 .Where(gm => gm.GroupId == id)
+                .Include(gm => gm.User)
                 .Select(gm => gm.User)
-                .ToList();
+                .ToListAsync();
+        }
 
-            return userList;
+        // ✅ Logic moved from controller
+        public async Task<object> GetGroupDetailsAsync(int id)
+        {
+            var group = await _db.Groups
+                .Include(g => g.GroupMembers)
+                    .ThenInclude(gm => gm.User)
+                .FirstOrDefaultAsync(g => g.Id == id);
+
+            if (group == null) return null;
+
+            return new
+            {
+                group.Id,
+                group.Name,
+                group.Description,
+                Members = group.GroupMembers.Select(gm => new { gm.User.Id, gm.User.Username }).ToList()
+            };
+        }
+
+        // ✅ Logic moved from controller
+        public async Task<List<object>> GetAssignmentsAsync()
+        {
+            return await _db.GroupMembers
+                .Include(ug => ug.User)
+                .Include(ug => ug.Group)
+                .Select(ug => new
+                {
+                    UserEmail = ug.User.Email,
+                    GroupName = ug.Group.Name
+                })
+                .ToListAsync<object>();
         }
     }
 }

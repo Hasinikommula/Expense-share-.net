@@ -4,6 +4,7 @@ using ExpenseShareAPI.DTO_s;
 using ExpenseShareAPI.ExpenseShareModels;
 using Microsoft.EntityFrameworkCore;
 using System;
+using static ExpenseShareAPI.Services.ExpenseService;
 
 namespace ExpenseShareAPI.Services
 {
@@ -64,11 +65,11 @@ namespace ExpenseShareAPI.Services
             var payment = await _context.Payments.FindAsync(paymentId);
             if (payment == null) return (false, null, null);
 
-            // mark as completed
+           
             payment.IsCompleted = true;
             await _context.SaveChangesAsync();
 
-            // recalc balances after payment
+           
             var expenseService = new ExpenseService(_context);
             var (balances, settlements) = await expenseService.CalculateBalancesAsync(payment.GroupId);
 

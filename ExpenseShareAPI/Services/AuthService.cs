@@ -71,7 +71,7 @@ namespace ExpenseSharingApi.Services
             return user;
         }
 
-        // ✅ Secure password hashing with PBKDF2
+      
         private string CreatePasswordHash(string password)
         {
             byte[] salt = new byte[16];

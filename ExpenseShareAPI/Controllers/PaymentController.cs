@@ -11,28 +11,40 @@ namespace ExpenseShareAPI.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
+        private readonly IExpenseService _expenseService;
 
-        public PaymentController(IPaymentService paymentService)
+
+        public PaymentController(IPaymentService paymentService,IExpenseService expenseService)
         {
             _paymentService = paymentService;
+            _expenseService = expenseService;
         }
 
-        // POST: /api/Payment
+      
         [HttpPost]
         public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentDTO dto)
         {
             try
             {
-                var result = await _paymentService.CreatePaymentAsync(dto);
-                return Ok(result);
+                var paymentResult = await _paymentService.CreatePaymentAsync(dto);
+                
+
+              
+                var (balances, settlements) = await _expenseService.CalculateBalancesAsync(dto.GroupId);
+
+                return Ok(new
+                {
+                    message = "Payment recorded successfully",
+                    balances,
+                    settlements
+                });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
         }
-
-        // PUT: /api/Payment/{id}/complete
+        
         [HttpPut("{id}/complete")]
         public async Task<IActionResult> CompletePayment(int id)
         {
@@ -47,7 +59,7 @@ namespace ExpenseShareAPI.Controllers
             });
         }
 
-        // GET: /api/Payment/group/{groupId}
+       
         [HttpGet("group/{groupId}")]
         public async Task<IActionResult> GetPaymentsForGroup(int groupId, bool? isCompleted = null)
         {

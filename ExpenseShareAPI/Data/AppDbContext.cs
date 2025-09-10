@@ -20,7 +20,7 @@ namespace ExpenseShareAPI.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 🔹 GroupMember composite key
+           
             modelBuilder.Entity<GroupMember>()
                 .HasKey(gm => new { gm.GroupId, gm.UserId });
 
@@ -46,7 +46,7 @@ namespace ExpenseShareAPI.Data
 
             modelBuilder.Entity<Payment>()
         .HasOne(p => p.FromUser)
-        .WithMany() // we don't need to add a navigation collection on User for payments, avoid cycles
+        .WithMany()
         .HasForeignKey(p => p.FromUserId)
         .OnDelete(DeleteBehavior.Restrict);
 
